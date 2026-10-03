@@ -1,0 +1,41 @@
+name: post
+on:
+  schedule:
+    - cron: "0 0 * * *" # 毎日 JST 9:00 (GitHub の cron は数分〜数十分遅れることがある)
+  workflow_dispatch:
+
+concurrency: post
+
+permissions:
+  contents: write
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Post
+        run: python3 post.py
+        env:
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          NEW_TOKEN_FILE: ${{ runner.temp }}/new_token
+
+      - name: Commit moved image
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A images posted
+          if ! git diff --cached --quiet; then
+            git commit -m "posted: move image"
+            git pull --rebase
+            git push
+          fi
+
+      - name: Rotate token secret
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          F: ${{ runner.temp }}/new_token
+        run: '[ -s "$F" ] && gh secret set IG_TOKEN --repo "$GITHUB_REPOSITORY" < "$F" || echo "no new token"'
