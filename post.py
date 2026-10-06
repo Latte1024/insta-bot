@@ -21,6 +21,10 @@ ROOT = Path(__file__).parent
 IMAGES, POSTED = ROOT / "images", ROOT / "posted"
 
 
+HINT = ("\n=> token/app is blocked or invalid: check the Meta app dashboard (app status, "
+        "notifications), regenerate the token, update the IG_TOKEN secret, then re-run via workflow_dispatch")
+
+
 def call(method, path, **params):
     # トークンを含む URL / params は絶対に出力しない
     data = urllib.parse.urlencode(params).encode()
@@ -31,7 +35,9 @@ def call(method, path, **params):
         with urllib.request.urlopen(req, timeout=60) as r:
             return json.load(r)
     except urllib.error.HTTPError as e:
-        sys.exit(f"API error {e.code} on {path}: {e.read().decode(errors='replace')}")
+        body = e.read().decode(errors="replace")
+        hint = HINT if '"code":190' in body or '"code":200' in body else ""
+        sys.exit(f"API error {e.code} on {path}: {body}{hint}")
 
 
 def refresh_token(token):
@@ -45,6 +51,8 @@ def refresh_token(token):
         with urllib.request.urlopen(url, timeout=60) as r:
             Path(out).write_text(json.load(r)["access_token"])
         print("token refreshed")
+    except urllib.error.HTTPError as e:  # 本文にトークンは含まれない
+        print(f"warning: token refresh failed: {e.code} {e.read().decode(errors='replace')}")
     except Exception as e:  # noqa: BLE001
         print(f"warning: token refresh skipped ({type(e).__name__})")
 

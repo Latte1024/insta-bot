@@ -1,7 +1,7 @@
 name: post
 on:
   schedule:
-    - cron: "0 0 * * *" # 毎日 JST 9:00 (GitHub の cron は数分〜数十分遅れることがある)
+    - cron: "23 0 * * *" # 毎日 JST 9:23 (毎時0分は混み合い遅延/欠落しやすいのでずらす)
   workflow_dispatch:
 
 concurrency: post
@@ -38,4 +38,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
           F: ${{ runner.temp }}/new_token
-        run: '[ -s "$F" ] && gh secret set IG_TOKEN --repo "$GITHUB_REPOSITORY" < "$F" || echo "no new token"'
+        run: '[ -s "$F" ] || { echo "no new token"; exit 0; }; gh secret set IG_TOKEN --repo "$GITHUB_REPOSITORY" < "$F" || echo "::warning::IG_TOKEN rotation failed (GH_PAT needs Secrets: write)"'
